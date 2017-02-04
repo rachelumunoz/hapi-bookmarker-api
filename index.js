@@ -1,10 +1,9 @@
 'use strict'
 
 const Hapi = require('Hapi')
-const uuid = require('node-uuid')
+// const uuid = require('node-uuid')
 
-//create server and connetion
-
+//create server and connection
 const server = new Hapi.Server()
 
 server.connection({
@@ -12,7 +11,6 @@ server.connection({
 })
 
 //register plugin
-
 server.register([{
   register: require('good'),
   options: {
@@ -29,6 +27,8 @@ server.register([{
       }, 'stdout']
     }
   }
+}, {
+  register: require('./plugins/db')
 }, {
   register: require('./routes/bookmarks')
 }], (err)=>{

@@ -1,33 +1,62 @@
 'use strict'
 
+const uuid = require('node-uuid')
+
+
 exports.register = function(server, options, next){
   //creat route
-  const bookmarks = [{
-      "_id": "534de420-2d86-11e6-b18e-4b692101e6d2",
-      "title": "CNN",
-      "url": "http://cnn.com/",
-      "created": new Date(),
-      "creator": "0a44ce1a-2cb9-11e6-b67b-9e71128cae77",
-      "upvoters": [
 
-      ]
-  }, {
-      "_id": "86ed6030-2d86-11e6-b18e-4b692101e6d2",
-      "title": "Huffington Post",
-      "url": "http://www.huffingtonpost.com",
-      "created": new Date(),
-      "creator": "0a44ce1a-2cb9-11e6-b67b-9e71128cae77",
-      "upvoters": [
+  const db = server.plugins['db'].db;
 
-      ]
-  }];
+  const _renameAndClearFields = (doc) =>{
+    doc.id = doc._id
+    
+    delete doc._id
+    delete doc.creator
+    delete doc.upvoters
+  }
 
   server.route({
     method: 'GET',
     path: '/bookmarks',
     handler: (request, reply)=>{
 
-      return reply(bookmarks)
+      let sort
+
+      if (request.query.sort === 'top'){
+        sort = {
+          $sort: {
+            upvotes: -1
+          }
+        }
+      }else {
+        sort = {
+          $sort: {
+            created: -1
+          }
+        }
+      }
+
+      db.bookmarks.aggregate({
+        $project: {
+          title: 1,
+          url: 1,
+          created: 1,
+          upvotes: {
+            $size: "$upvoters"
+          }
+        }
+      }, sort, (err, docs)=>{
+        if (err){
+          // error handled by hapi
+          throw err
+        }
+
+        docs.forEach(_renameAndClearFields)
+
+        return reply(docs)
+      })
+
     }
   })
 
@@ -35,7 +64,25 @@ exports.register = function(server, options, next){
     method: 'GET',
     path: '/bookmarks/{id}',
     handler: (request, reply)=>{
-      return reply(bookmarks[0])
+      
+      db.bookmarks.findOne({
+        _id: request.params.id
+        }, (err, doc)=>{
+          if (err){
+            throw err
+          }
+
+          if (!doc){
+            return reply('Not found').code(404)
+          }
+
+          doc.upvotes = doc.upvoters.length
+          _renameAndClearFields(doc)
+          
+          return reply(doc)
+        })
+
+
     }
   })
 
@@ -48,10 +95,20 @@ exports.register = function(server, options, next){
       const bookmark = request.payload
       bookmark._id = uuid.v1()
       bookmark.created = new Date()
+      bookmark.creator = ''
+      bookmark.upvoters = []
+      bookmark.upvotes = 0
 
-      bookmarks.push(bookmark)
+      db.bookmarks.save(bookmark, (err, result)=>{
+        if (err){
+          throw err
+        }
 
-      return reply(bookmark).code(201)
+        _renameAndClearFields(bookmark)
+        return reply(bookmark).code(201)
+      })
+
+
     }
   })
 
@@ -59,8 +116,21 @@ exports.register = function(server, options, next){
     method: 'PATCH',
     path: '/bookmarks/{id}',
     handler: (request, reply)=>{
-      
-      return reply().code(204)
+      db.bookmarks.update({
+        _id: request.params.id
+      }, {
+        $set: request.payload
+      }, (err, result)=>{
+        if(err){
+          throw err
+        }
+
+        if(result.n === 0){
+          return reply().code(404)
+        }
+
+        return reply().code(204)
+      })
     }
   })
 
@@ -68,8 +138,19 @@ exports.register = function(server, options, next){
     method: 'DELETE',
     path: '/bookmarks/{id}',
     handler: (request, reply)=>{
-      
-      return reply().code(204)
+     db.bookmarks.remove({
+        _id: request.params.id
+      }, (err, result)=>{
+        if(err){
+          throw err
+        }
+
+        if(result.n === 0){
+          return reply().code(404)
+        }
+
+        return reply().code(204)
+      })
     }
   })
 
@@ -77,8 +158,23 @@ exports.register = function(server, options, next){
     method: 'POST',
     path: '/bookmarks/{id}/upvote',
     handler: (request, reply)=>{
-      
-      return reply().code(204)
+      db.bookmarks.update({
+        _id: request.params.id
+      }, {
+        $addToSet: {
+          upvoters: ''
+        }
+      }, (err, result)=>{
+        if(err){
+          throw err
+        }
+
+        if(result.n === 0){
+          return reply().code(404)
+        }
+
+        return reply().code(204)
+      })
     }
   })
 
@@ -86,5 +182,6 @@ exports.register = function(server, options, next){
 }
 
 exports.register.attributes = {
-  name: 'routes-bookmarks'
+  name: 'routes-bookmarks',
+  dependencies: ['db']
 }
