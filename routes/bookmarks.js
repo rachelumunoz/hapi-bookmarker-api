@@ -1,6 +1,7 @@
 'use strict'
 
 const uuid = require('node-uuid')
+const Joi = require('joi')
 
 
 exports.register = function(server, options, next){
@@ -57,6 +58,14 @@ exports.register = function(server, options, next){
         return reply(docs)
       })
 
+    },
+    // query validation performed before handler in request lifecyle
+    config: {
+      validate: {
+        query: {
+          sort: Joi.string().valid('top', 'new').default('top')
+        }
+      }
     }
   })
 
@@ -109,6 +118,14 @@ exports.register = function(server, options, next){
       })
 
 
+    },
+    config: {
+      validate: {
+        payload: {
+          title: Joi.string().min(1).max(100).required(),
+          url: Joi.string().uri().required()
+        }
+      }
     }
   })
 
@@ -131,6 +148,14 @@ exports.register = function(server, options, next){
 
         return reply().code(204)
       })
+    },
+    config: {
+      validate: {
+        payload: Joi.object({
+          title: Joi.string().min(1).max(100).optional(),
+          url: Joi.string().uri().optional()
+        }).required().min(1)
+      }
     }
   })
 
