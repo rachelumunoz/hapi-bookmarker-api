@@ -28,9 +28,15 @@ server.register([{
     }
   }
 }, {
-  register: require('./plugins/db')
+  register: require('hapi-auth-bearer-token')
 }, {
+  register: require('./plugins/db')
+},{
+  register: require('./plugins/auth')
+},{
   register: require('./routes/bookmarks')
+},{
+  register: require('./routes/auth')
 }], (err)=>{
   server.start(err=>{
     if(err){

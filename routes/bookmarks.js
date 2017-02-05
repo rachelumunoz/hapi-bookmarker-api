@@ -2,10 +2,10 @@
 
 const uuid = require('node-uuid')
 const Joi = require('joi')
+const Boom = require('boom')
 
 
 exports.register = function(server, options, next){
-  //creat route
 
   const db = server.plugins['db'].db;
 
@@ -82,7 +82,8 @@ exports.register = function(server, options, next){
           }
 
           if (!doc){
-            return reply('Not found').code(404)
+            // return reply('Not found').code(404)
+            return reply(Boom.notFound())
           }
 
           doc.upvotes = doc.upvoters.length
@@ -104,7 +105,7 @@ exports.register = function(server, options, next){
       const bookmark = request.payload
       bookmark._id = uuid.v1()
       bookmark.created = new Date()
-      bookmark.creator = ''
+      bookmark.creator = request.auth.credentials._id
       bookmark.upvoters = []
       bookmark.upvotes = 0
 
@@ -120,6 +121,7 @@ exports.register = function(server, options, next){
 
     },
     config: {
+      auth: 'bearer',
       validate: {
         payload: {
           title: Joi.string().min(1).max(100).required(),
@@ -143,13 +145,15 @@ exports.register = function(server, options, next){
         }
 
         if(result.n === 0){
-          return reply().code(404)
+          return reply(Boom.notFound())
+
         }
 
         return reply().code(204)
       })
     },
     config: {
+      auth: 'bearer',
       validate: {
         payload: Joi.object({
           title: Joi.string().min(1).max(100).optional(),
@@ -171,11 +175,14 @@ exports.register = function(server, options, next){
         }
 
         if(result.n === 0){
-          return reply().code(404)
+          return reply(Boom.notFound())
         }
 
         return reply().code(204)
       })
+    },
+    config: {
+      auth: 'bearer'
     }
   })
 
@@ -187,7 +194,7 @@ exports.register = function(server, options, next){
         _id: request.params.id
       }, {
         $addToSet: {
-          upvoters: ''
+          upvoters: request.auth.credentials._id
         }
       }, (err, result)=>{
         if(err){
@@ -195,11 +202,14 @@ exports.register = function(server, options, next){
         }
 
         if(result.n === 0){
-          return reply().code(404)
+          return reply(Boom.notFound())
         }
 
         return reply().code(204)
       })
+    },
+    config: {
+      auth: 'bearer'
     }
   })
 
